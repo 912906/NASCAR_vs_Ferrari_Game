@@ -1,0 +1,150 @@
+# main.py
+
+import pygame
+import math
+import random
+
+# Initialize pygame
+pygame.init()
+
+# Constants
+SCREEN_WIDTH = 800
+SCREEN_HEIGHT = 600
+FPS = 60
+CAR_WIDTH = 50
+CAR_HEIGHT = 100
+TRACK_BORDER_PADDING = 50
+
+# Colors
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+RED = (255, 0, 0)
+GREEN = (0, 255, 0)
+BLUE = (0, 0, 255)
+
+# Load assets (place in 'assets' folder)
+NASCAR_IMG = pygame.image.load('assets/nascar.png')
+FERRARI_IMG = pygame.image.load('assets/ferrari_f40.png')
+TRACK_IMG = pygame.image.load('assets/track.png')
+
+# Scale car images
+NASCAR_IMG = pygame.transform.scale(NASCAR_IMG, (CAR_WIDTH, CAR_HEIGHT))
+FERRARI_IMG = pygame.transform.scale(FERRARI_IMG, (CAR_WIDTH, CAR_HEIGHT))
+
+# Create the game screen
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+pygame.display.set_caption("NASCAR vs Ferrari F40s")
+
+clock = pygame.time.Clock()
+
+# Car Class
+class Car:
+    def __init__(self, x, y, car_image, speed=2):
+        self.x = x
+        self.y = y
+        self.angle = 0
+        self.speed = speed
+        self.img = car_image
+        self.velocity = 0
+        self.acceleration = 0.1
+        self.max_speed = 5
+        self.brake_deceleration = 0.2
+        self.turn_speed = 3
+        self.rect = self.img.get_rect(topleft=(self.x, self.y))
+
+    def update(self):
+        # Movement
+        keys = pygame.key.get_pressed()
+        
+        # Acceleration and braking
+        if keys[pygame.K_UP]:
+            self.velocity += self.acceleration
+        elif keys[pygame.K_DOWN]:
+            self.velocity -= self.brake_deceleration
+        
+        # Steering
+        if keys[pygame.K_LEFT]:
+            self.angle += self.turn_speed
+        if keys[pygame.K_RIGHT]:
+            self.angle -= self.turn_speed
+
+        # Limiting max speed
+        if self.velocity > self.max_speed:
+            self.velocity = self.max_speed
+        if self.velocity < -self.max_speed:
+            self.velocity = -self.max_speed
+
+        # Movement logic
+        self.x += math.sin(math.radians(self.angle)) * self.velocity
+        self.y -= math.cos(math.radians(self.angle)) * self.velocity
+
+        # Update rect position
+        self.rect.topleft = (self.x, self.y)
+
+    def draw(self, screen):
+        # Rotate image based on angle
+        rotated_img = pygame.transform.rotate(self.img, self.angle)
+        new_rect = rotated_img.get_rect(center=self.img.get_rect(topleft=(self.x, self.y)).center)
+        screen.blit(rotated_img, new_rect.topleft)
+
+# AI Opponent Class
+class AICar(Car):
+    def __init__(self, x, y, car_image, speed=2):
+        super().__init__(x, y, car_image, speed)
+        self.waypoints = [(150, 150), (650, 150), (650, 450), (150, 450)]  # Racing line
+        self.current_waypoint = 0
+
+    def ai_update(self):
+        target_x, target_y = self.waypoints[self.current_waypoint]
+
+        # AI pathfinding (basic waypoint following)
+        angle_to_target = math.degrees(math.atan2(target_y - self.y, target_x - self.x))
+        angle_diff = (angle_to_target - self.angle) % 360
+        if angle_diff > 180:
+            angle_diff -= 360
+
+        if angle_diff > 0:
+            self.angle += self.turn_speed
+        else:
+            self.angle -= self.turn_speed
+
+        # Move towards waypoint
+        self.velocity = self.speed
+        self.x += math.sin(math.radians(self.angle)) * self.velocity
+        self.y -= math.cos(math.radians(self.angle)) * self.velocity
+
+        # Update waypoint
+        if math.hypot(target_x - self.x, target_y - self.y) < 10:
+            self.current_waypoint = (self.current_waypoint + 1) % len(self.waypoints)
+
+# Main Game Loop
+def game_loop():
+    nascar = Car(400, 500, NASCAR_IMG)
+    ferraris = [AICar(random.randint(100, 700), random.randint(100, 500), FERRARI_IMG, speed=random.randint(2, 4)) for _ in range(3)]
+    
+    running = True
+    while running:
+        screen.fill(WHITE)
+        screen.blit(TRACK_IMG, (0, 0))  # Track background
+        
+        # Event Handling
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+
+        # Update player's car
+        nascar.update()
+        nascar.draw(screen)
+
+        # Update and draw AI Ferrari F40s
+        for ferrari in ferraris:
+            ferrari.ai_update()
+            ferrari.draw(screen)
+
+        # Update display and tick clock
+        pygame.display.update()
+        clock.tick(FPS)
+
+# Run the game loop
+game_loop()
+pygame.quit()
