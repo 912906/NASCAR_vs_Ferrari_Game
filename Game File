@@ -148,3 +148,4 @@ def game_loop():
 # Run the game loop
 game_loop()
 pygame.quit()
+pip install pygame
